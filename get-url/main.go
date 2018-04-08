@@ -8,18 +8,21 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 	log "github.com/sirupsen/logrus"
 )
 
-func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	log.WithField("body", request.Body).Info("Received request")
+type HandlerConfig struct {
+	DynamoDBTable  string
+	DynamoDBClient dynamodbiface.DynamoDBAPI
+}
+
+func (hc *HandlerConfig) Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	s := request.PathParameters["short_url"]
 	log.WithField("short_url", s).Info("Got short URL")
 
-	sess := session.Must(session.NewSession())
-	dynamodbclient := dynamodb.New(sess)
-	result, err := dynamodbclient.GetItem(&dynamodb.GetItemInput{
-		TableName: aws.String(os.Getenv("DYNAMO_DB_TABLE")),
+	result, err := hc.DynamoDBClient.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(hc.DynamoDBTable),
 		Key: map[string]*dynamodb.AttributeValue{
 			"short_url": {S: aws.String(s)},
 		},
@@ -32,10 +35,14 @@ func Handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		return events.APIGatewayProxyResponse{StatusCode: 404, Body: "nix"}, nil
 	}
 	loc := result.Item["url"]
-
 	return events.APIGatewayProxyResponse{StatusCode: 302, Headers: map[string]string{"Location": *loc.S}}, nil
 }
 
 func main() {
-	lambda.Start(Handler)
+	sess := session.Must(session.NewSession())
+	hc := &HandlerConfig{
+		DynamoDBTable:  os.Getenv("DYNAMO_DB_TABLE"),
+		DynamoDBClient: dynamodb.New(sess),
+	}
+	lambda.Start(hc.Handler)
 }
