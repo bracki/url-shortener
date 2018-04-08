@@ -1,0 +1,77 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: url-shortener
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: go1.x
+  iamRoleStatements:
+    -  Effect: "Allow"
+       Action:
+         - "dynamodb:PutItem"
+         - "dynamodb:GetItem"
+       Resource:
+         Fn::GetAtt:
+           - DynamoDBTable
+           - Arn
+
+# you can define service wide environment variables here
+  environment:
+    DYNAMO_DB_TABLE: 
+      Ref: DynamoDBTable
+
+package:
+ exclude:
+   - ./**
+ include:
+   - ./bin/**
+
+functions:
+  create-url:
+    handler: bin/create-url
+    events:
+      - http:
+          path: create-url
+          method: post
+  get-url:
+    handler: bin/get-url
+    events:
+      - http:
+          path: /{short_url} 
+          method: get
+          request:
+            parameters:
+              paths:
+                short_url: true
+
+# you can add CloudFormation resource templates here
+resources:
+  Resources:
+    DynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: url-shortener 
+        KeySchema:
+          - AttributeName: "short_url"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: "1"
+          WriteCapacityUnits: "1"
+        AttributeDefinitions:
+          - AttributeName: "short_url"
+            AttributeType: "S"
