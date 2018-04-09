@@ -1,3 +1,10 @@
+# Things we'll learn today
+
+- Serverless Framework
+- Go
+- AWS DynamoDB
+- How to test Lambda functions
+
 # Steps
 
 ```
